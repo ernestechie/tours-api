@@ -5,9 +5,13 @@ const authController = require('../controllers/authController');
 const router = express.Router();
 
 const { getAllUsers, getUser } = userController;
+const { login, signup, forgotPassword, resetPassword } = authController;
 
-router.post('/login', authController.login);
-router.post('/signup', authController.signup);
+router.post('/login', login);
+router.post('/signup', signup);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+
 router.route('/').get(getAllUsers);
 router.route('/:id').get(getUser);
 
