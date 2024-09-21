@@ -10,7 +10,7 @@ const { login, signup, forgotPassword, resetPassword } = authController;
 router.post('/login', login);
 router.post('/signup', signup);
 router.post('/forgot-password', forgotPassword);
-router.post('/reset-password', resetPassword);
+router.patch('/reset-password/:token', resetPassword);
 
 router.route('/').get(getAllUsers);
 router.route('/:id').get(getUser);

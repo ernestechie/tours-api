@@ -24,7 +24,7 @@ router.route('/monthly-stats/:year').get(getMonthlyStats);
 
 router
   .route('/')
-  .get(getAllTours)
+  .get(protectRoute, getAllTours)
   .post(checkRequestBody, protectRoute, createTour);
 
 router

@@ -1,9 +1,11 @@
 const { promisify } = require('util');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+
 const UserModel = require('../models/userModel');
 const AppError = require('../utils/appError');
-
 const { catchErrorAsync } = require('./errorController');
+const { natoursSendEmail } = require('../utils/email');
 
 const signJwtToken = ({ userId, next }) => {
   if (!userId) return next(new AppError('Invalid user Id'));
@@ -66,23 +68,75 @@ exports.forgotPassword = catchErrorAsync(async (req, res, next) => {
   }
 
   // 2. Generate and store a random reset token
-  const userToken = user.createPasswordResetToken();
+  const userToken = await user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
   // 3. Send token to user email
+  const resetURL = `${req.protocol}:${req.get('host')}/api/v1/users/reset-password/${userToken}`;
+
+  await natoursSendEmail({
+    recipients: [user.email],
+    subject: 'Reset Password (Expires in 30 Mins)',
+    text: `
+      Hello, ${user.name},\n
+      A request to change your password has been made, below is a link to reset your password.\n
+      Link: ${resetURL}\n\n
+      Kindly ignore if you did not request this.
+    `,
+  })
+    .then((res) => console.log('natoursSendEmail -> ', res))
+    .catch(async (err) => {
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+
+      await user.save({ validateBeforeSave: false });
+      return next(
+        new AppError('Error! Something went wrong when sending email.', 500),
+      );
+    });
 
   res.status(200).json({
     status: 'success',
-    data: { user, userToken },
-    message: 'Password reset requested successfully.',
+    message: 'Password reset token sent to email.',
   });
 });
 
 // Reset Password
 exports.resetPassword = catchErrorAsync(async (req, res, next) => {
+  const { newPassword, passwordConfirm } = req.body;
+  const token = req.params.token;
+
+  // 1. Get user based on token
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+  // 2. Check if token has expired or if user exists
+  const user = await UserModel.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: {
+      $gt: Date.now(),
+    },
+  });
+
+  if (!user) {
+    return next(new AppError('Invalid or expired token.', 400));
+  }
+
+  // 3. Update the password and  properties for the current user
+  user.password = newPassword;
+  user.passwordConfirm = passwordConfirm;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+
+  await user.save();
+
+  // 4. Log user in by sending JWT
+  const newToken = signJwtToken({ userId: user._id, next });
+
   res.status(200).json({
     status: 'success',
-    data: {},
+    data: {
+      token: newToken,
+    },
     message: 'Password reset successful.',
   });
 });

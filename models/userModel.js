@@ -5,58 +5,74 @@ const crypto = require('crypto');
 
 const { Schema, model } = mongoose;
 
-const userSchema = new Schema({
-  name: {
-    type: String,
-    trim: true,
-    required: [true, 'Please input name'],
-  },
-  email: {
-    type: String,
-    trim: true,
-    unique: true,
-    required: [true, 'Please input an email'],
-    lowercase: true,
-    validate: [validator.isEmail, 'Please provide a valid email.'],
-  },
-  avatar: String,
-  role: {
-    type: String,
-    enum: ['USER', 'GUIDE', 'LEAD-GUIDE', 'ADMIN'],
-    default: 'USER',
-  },
-  password: {
-    type: String,
-    trim: true,
-    minlength: 8,
-    required: [true, 'Please input password'],
-    select: false,
-  },
-  passwordConfirm: {
-    type: String,
-    trim: true,
-    minlength: 8,
-    required: [true, 'Please confirm password'],
-    validate: {
-      // This only works on SAVE
-      validator: function (el) {
-        return el === this.password;
-      },
-      message: 'Passwords don`t match',
+const userSchema = new Schema(
+  {
+    name: {
+      type: String,
+      trim: true,
+      required: [true, 'Please input name'],
     },
-    select: false,
+    email: {
+      type: String,
+      trim: true,
+      unique: true,
+      required: [true, 'Please input an email'],
+      lowercase: true,
+      validate: [validator.isEmail, 'Please provide a valid email.'],
+    },
+    avatar: String,
+    role: {
+      type: String,
+      enum: ['USER', 'GUIDE', 'LEAD-GUIDE', 'ADMIN'],
+      default: 'USER',
+    },
+    password: {
+      type: String,
+      trim: true,
+      minlength: 8,
+      required: [true, 'Please input password'],
+      select: false,
+    },
+    passwordConfirm: {
+      type: String,
+      trim: true,
+      minlength: 8,
+      required: [true, 'Please confirm password'],
+      validate: {
+        validator: function (el) {
+          return el === this.password;
+        },
+        message: 'Passwords don`t match',
+      },
+      select: false,
+    },
+    passwordChangedAt: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
   },
-  passwordChangedAt: Date,
-  passwordResetToken: String,
-  passwordResetExpires: Date,
-});
+  { context: true },
+);
 
+// Hash password before save
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) {
+    return next();
+  }
 
   // Hash the password and removes the "passwordConfirm" field.
   this.password = await bcrypt.hash(this.password, 12);
   this.passwordConfirm = undefined;
+
+  next();
+});
+
+// Update the "passwordChangedAt"
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password') || this.isNew) {
+    return next();
+  }
+
+  this.passwordChangedAt = Date.now() + 3600000;
 
   next();
 });
