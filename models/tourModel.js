@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
+const UserModel = require('./userModel');
 
 const { Schema, model } = mongoose;
 
@@ -65,9 +66,42 @@ const tourSchema = new Schema(
       select: false,
     },
     startDates: { type: [Date], default: [Date.now()] },
+    startLocation: {
+      // GeoJson
+      type: {
+        type: String,
+        default: 'Point',
+        enum: ['Point'],
+      },
+      coordinates: [Number],
+      address: String,
+      description: String,
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: 'Point',
+          enum: ['Point'],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
+    guides: [
+      {
+        type: Schema.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     toJSON: {
+      virtuals: true,
+    },
+    toObject: {
       virtuals: true,
     },
   },
@@ -77,10 +111,27 @@ tourSchema.virtual('durationWeeks').get(function () {
   return this.duration / 7;
 });
 
-// Docuement middleware - tourSchema.post()
+// Virtually populate the tour model with reviews without saving the reviews in the tour object to the db.
+tourSchema.virtual('reviews', {
+  ref: 'Review',
+  foreignField: 'tour',
+  localField: '_id',
+});
 
+// Docuement middleware - tourSchema.post()
 tourSchema.pre('save', function (next) {
   this.slug = slugify(this.name, { lower: true });
+  next();
+});
+
+// Docuement middleware - tourSchema.post()
+tourSchema.pre('save', async function (next) {
+  const guidesPromise = this.guides.map(
+    async (id) => await UserModel.findById(id),
+  );
+
+  const guides = await Promise.all(guidesPromise);
+  this.guides = guides;
 
   next();
 });
@@ -88,6 +139,15 @@ tourSchema.pre('save', function (next) {
 // Query Middleware
 tourSchema.pre('find', function (next) {
   this.find({ secretTour: { $ne: true } });
+  next();
+});
+
+// Populate the tours response with all the tour guides by referencing
+tourSchema.pre(/^find/, function (next) {
+  this.populate({
+    path: 'guides',
+    select: '-__v -passwordChangedAt -passwordResetExpires -passwordResetToken',
+  });
 
   next();
 });

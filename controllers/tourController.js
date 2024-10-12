@@ -5,30 +5,6 @@ const { catchErrorAsync } = require('./errorController');
 
 // Middleware Functions
 
-const requiredFields = ['name', 'duration', 'price'];
-exports.checkRequestBody = (req, res, next) => {
-  const tour = req.body.tour;
-
-  if (!tour)
-    return res.status(400).json({
-      status: 'fail',
-      message: `Invalid body. Must contain object 'tour' with required fields: '${requiredFields.join(
-        ', ',
-      )}'`,
-    });
-
-  const missingFields = requiredFields.filter((field) => !tour[field]);
-
-  if (missingFields.length > 0) {
-    return res.status(400).json({
-      status: 'fail',
-      error: `Missing required fields: '${missingFields.join(', ')}'`,
-    });
-  }
-
-  return next();
-};
-
 exports.aliasTopTours = (req, res, next) => {
   req.query.limit = '5';
   req.query.sort = '-ratingsAverage,price';
@@ -45,7 +21,9 @@ exports.getAllTours = catchErrorAsync(async (req, res, next) => {
   const excludedFields = ['page', 'sort', 'limit', 'fields'];
 
   // Execute the query find()
-  const features = new APIFeatures(TourModel.find(), req.query);
+  const toursQuery = TourModel.find();
+
+  const features = new APIFeatures(toursQuery, req.query);
   features.filter(excludedFields).sort().limitFields().paginate();
 
   const tours = await features.query;
@@ -54,8 +32,13 @@ exports.getAllTours = catchErrorAsync(async (req, res, next) => {
   res.status(200).json({
     status: 'success',
     results: tours.length,
-    currentPage: +req.query.page || 1,
-    data: { tours, requestTime },
+    data: {
+      tours,
+      meta: {
+        requestTime,
+        currentPage: +req.query.page || 1,
+      },
+    },
     message: 'Tours retrieved successsfully',
   });
 });
@@ -63,8 +46,11 @@ exports.getAllTours = catchErrorAsync(async (req, res, next) => {
 exports.getTour = catchErrorAsync(async (req, res, next) => {
   const { params, requestTime } = req;
 
-  const tour = await TourModel.findById(params.id);
-  // const tour = await TourModel.findOne({ _id: req.paras.id })
+  const tour = await TourModel.findById(params.id).populate({
+    path: 'reviews',
+    select: '-__v',
+  });
+
   if (!tour) {
     return next(new AppError('No tour found with this id', 404));
   }
@@ -110,7 +96,7 @@ exports.updateTour = catchErrorAsync(async (req, res, next) => {
 });
 
 exports.deleteTour = catchErrorAsync(async (req, res, next) => {
-  const { params, requestTime } = req;
+  const { params } = req;
 
   const tour = await TourModel.findByIdAndDelete(params.id);
 
@@ -120,7 +106,6 @@ exports.deleteTour = catchErrorAsync(async (req, res, next) => {
 
   res.status(204).json({
     status: 'success',
-    data: { tour: null, requestTime },
     message: 'Tour deleted successsfully',
   });
 });

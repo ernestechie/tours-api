@@ -1,15 +1,23 @@
 const express = require('express');
 const morgan = require('morgan');
 
+const rateLimit = require('express-rate-limit');
 const AppError = require('./utils/appError');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
+const reviewRouter = require('./routes/reviewRoutes');
 const { globalErrorHandler } = require('./controllers/errorController');
 
 const app = express();
 
-// Middlewares
+// Global Middlewares
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
+
+const limiter = rateLimit({
+  max: 10, // Maximum number of requests in the window
+  windowMs: 3600000, // 1 hour (in Milliseconds)
+  message: 'Too many requests, please try again in 1hr.',
+});
 
 app.use(express.json());
 app.use(express.static(`${__dirname}/public`));
@@ -20,10 +28,10 @@ app.use((req, res, next) => {
 });
 
 // Routes
-
-// https://www.natours.dev/api/v1/tours
+app.use('/api', limiter);
 app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
+app.use('/api/v1/reviews', reviewRouter);
 
 // Catch all not-found routes.
 app.all('*', (req, res, next) => {

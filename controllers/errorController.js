@@ -1,12 +1,11 @@
 const AppError = require('../utils/appError');
 
-const sendErrDevelopment = (err, res) => {
-  return res.status(err.statusCode).json({
+const sendErrDevelopment = (err, res) =>
+  res.status(err.statusCode).json({
     status: err.status,
     message: err.message,
     error: err,
   });
-};
 
 const sendErrProduction = (err, res) => {
   if (err.isOperational) {
@@ -14,21 +13,18 @@ const sendErrProduction = (err, res) => {
       status: err.status,
       message: err.message,
     });
-  } else {
-    return res.status(500).json({
-      status: 'error',
-      message: 'Something went wrong.',
-    });
   }
+  return res.status(500).json({
+    status: 'error',
+    message: 'Something went wrong.',
+  });
 };
 
-const handleJwtError = () => {
-  return new AppError(`Invalid token. Please login again.`, 400);
-};
+const handleJwtError = () =>
+  new AppError(`Invalid token. Please login again.`, 400);
 
-const handleJwtExpiredError = () => {
-  return new AppError(`Token expired. Please login again.`, 400);
-};
+const handleJwtExpiredError = () =>
+  new AppError(`Token expired. Please login again.`, 400);
 
 const handleValidateErrorDB = (err) => {
   const errors = Object.values(err.errors).map((el) => el.message);
@@ -39,8 +35,6 @@ const handleValidateErrorDB = (err) => {
 };
 
 exports.globalErrorHandler = (err, req, res, next) => {
-  console.error('Global Error -> ', err.name);
-
   err.status = err.status || 'error';
   err.statusCode = err.statusCode || 500;
 
@@ -51,6 +45,7 @@ exports.globalErrorHandler = (err, req, res, next) => {
     if (error.name === 'ValidationError') error = handleValidateErrorDB(error);
     if (error.name === 'JsonWebTokenError') error = handleJwtError();
     if (error.name === 'TokenExpiredError') error = handleJwtExpiredError();
+    else error = new AppError(err.message, error.statusCode);
 
     sendErrProduction(error, res);
   }
@@ -58,8 +53,6 @@ exports.globalErrorHandler = (err, req, res, next) => {
   next();
 };
 
-exports.catchErrorAsync = (func) => {
-  return (req, res, next) => {
-    func(req, res, next).catch(next);
-  };
+exports.catchErrorAsync = (func) => (req, res, next) => {
+  func(req, res, next).catch(next);
 };

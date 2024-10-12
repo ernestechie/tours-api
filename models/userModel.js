@@ -49,6 +49,11 @@ const userSchema = new Schema(
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Date,
+    isActive: {
+      type: Boolean,
+      default: true,
+      select: false,
+    },
   },
   { context: true },
 );
@@ -109,6 +114,13 @@ userSchema.methods.createPasswordResetToken = async function () {
 
   return resetToken;
 };
+
+// Query Middleware - Exclude users with "isActive" property "false".
+userSchema.pre(/^find/, function (next) {
+  this.find({ isActive: { $ne: false } });
+
+  next();
+});
 
 const UserModel = model('User', userSchema);
 

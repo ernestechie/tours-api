@@ -1,25 +1,8 @@
-const fs = require('fs');
 const APIFeatures = require('../modules/APIFeatures');
 const UserModel = require('../models/userModel');
-
 const { catchErrorAsync } = require('./errorController');
-
-const fileUrl = `${__dirname}/../dev-data/data/users.json`;
-const users = JSON.parse(fs.readFileSync(fileUrl));
-
-// Middleware Function
-exports.checkId = (req, res, next, val) => {
-  const userId = req.params.id;
-  const userIdFound = users.some((user) => user._id === userId);
-
-  if (!userIdFound)
-    return res.status(404).json({
-      status: 'fail',
-      message: `Cannot find user with 'id' of ${userId}`,
-    });
-
-  next();
-};
+const AppError = require('../utils/appError');
+const { filterBodyObject } = require('../utils');
 
 // Route Handlers
 exports.getAllUsers = catchErrorAsync(async (req, res) => {
@@ -37,21 +20,72 @@ exports.getAllUsers = catchErrorAsync(async (req, res) => {
   res.status(200).json({
     status: 'success',
     results: users.length,
-    currentPage: +req.query.page || 1,
-    data: { users, requestTime },
+    data: {
+      users,
+      meta: {
+        requestTime,
+        currentPage: +req.query.page || 1,
+      },
+    },
     message: 'Users retrieved successsfully',
   });
 });
 
-exports.getUser = (req, res) => {
-  const { params } = req;
-  const userId = params.id;
+exports.getUser = catchErrorAsync(async (req, res, next) => {
+  const { params, requestTime } = req;
 
-  const user = users.find(({ _id }) => _id == userId);
+  const user = await UserModel.findById(params.id);
+
+  if (!user) {
+    return next(new AppError('No user found with this id', 404));
+  }
 
   res.status(200).json({
     status: 'success',
-    data: { user },
-    message: 'User fetched successfully',
+    data: { user, requestTime },
+    message: 'User retrieved successsfully',
   });
-};
+});
+
+// Update user account/password
+exports.updateProfile = catchErrorAsync(async (req, res, next) => {
+  const { body } = req;
+
+  if (body.password || body.passwordConfirm) {
+    return next(
+      new AppError('Cannot update password field with this route.', 400),
+    );
+  }
+
+  const filteredBody = filterBodyObject(body, 'role', 'email');
+
+  const updatedUser = await UserModel.findByIdAndUpdate(
+    req.user.id,
+    filteredBody,
+    {
+      new: true,
+      runValidators: true,
+    },
+  );
+
+  await updatedUser.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: { user: updatedUser },
+    message: 'User updated successfully',
+  });
+});
+
+// Delete user account
+exports.deleteAccount = catchErrorAsync(async (req, res, next) => {
+  const currentUser = await UserModel.findById(req.user.id);
+
+  currentUser.isActive = false;
+  await currentUser.save();
+
+  res.status(204).json({
+    status: 'success',
+    message: 'Account deleted successfully',
+  });
+});

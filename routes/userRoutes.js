@@ -4,15 +4,31 @@ const authController = require('../controllers/authController');
 
 const router = express.Router();
 
-const { getAllUsers, getUser } = userController;
-const { login, signup, forgotPassword, resetPassword } = authController;
+const { getAllUsers, getUser, updateProfile, deleteAccount } = userController;
+const {
+  login,
+  signup,
+  forgotPassword,
+  resetPassword,
+  protectRoute,
+  restrictTo,
+} = authController;
 
+// Auth routes
 router.post('/login', login);
 router.post('/signup', signup);
 router.post('/forgot-password', forgotPassword);
 router.patch('/reset-password/:token', resetPassword);
 
-router.route('/').get(getAllUsers);
-router.route('/:id').get(getUser);
+// User routes
+router.patch('/update-profile', protectRoute, updateProfile);
+router.delete('/delete-account', protectRoute, deleteAccount);
+router
+  .route('/')
+  .get(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), getAllUsers);
+
+router
+  .route('/:id')
+  .get(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), getUser);
 
 module.exports = router;

@@ -1,7 +1,6 @@
 const { promisify } = require('util');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-
 const UserModel = require('../models/userModel');
 const AppError = require('../utils/appError');
 const { catchErrorAsync } = require('./errorController');
@@ -15,20 +14,47 @@ const signJwtToken = ({ userId, next }) => {
   });
 };
 
-// Signup / Register
-exports.signup = catchErrorAsync(async (req, res, next) => {
-  const { requestTime } = req;
-
-  const user = await UserModel.create(req.body);
+// Send token via cookie to the client
+const createSendToken = (user, statusCode, res, next) => {
   const token = signJwtToken({ userId: user._id, next });
 
-  if (user._id) {
-    res.status(201).json({
-      status: 'success',
-      data: { user, token, requestTime },
-      message: 'Signup successful',
-    });
-  }
+  const expires =
+    new Date(Date.now() + process.env.JWT_COOKIE_EXPIRES) * 86400000;
+
+  const options = {
+    expires,
+    // When set to "true", cookie only sends over HTTPS
+    secure: process.env.NODE_ENV === 'production' ? true : false,
+    httpOnly: true, // Cookie cannot be accessed/modified via browser
+  };
+
+  res.cookie('accessToken', token, options);
+  // Remove the password from the response
+  user.password = undefined;
+
+  res.status(statusCode).json({
+    status: 'success',
+    data: {
+      token,
+      user,
+    },
+  });
+};
+
+// Signup / Register
+exports.signup = catchErrorAsync(async (req, res, next) => {
+  const user = await UserModel.create(req.body);
+  // const token = signJwtToken({ userId: user._id, next });
+
+  // if (user._id) {
+  //   res.status(201).json({
+  //     status: 'success',
+  //     data: { user, token },
+  //     message: 'Signup successful',
+  //   });
+  // }
+
+  createSendToken(user, 201, res, next);
 });
 
 // Login
@@ -48,6 +74,8 @@ exports.login = catchErrorAsync(async (req, res, next) => {
   }
 
   const token = signJwtToken({ userId: user._id, next });
+  // Remove the password from the response
+  user.password = undefined;
 
   res.status(200).json({
     status: 'success',
@@ -84,7 +112,7 @@ exports.forgotPassword = catchErrorAsync(async (req, res, next) => {
       Kindly ignore if you did not request this.
     `,
   })
-    .then((res) => console.log('natoursSendEmail -> ', res))
+    .then((res) => {})
     .catch(async (err) => {
       user.passwordResetToken = undefined;
       user.passwordResetExpires = undefined;
@@ -104,7 +132,8 @@ exports.forgotPassword = catchErrorAsync(async (req, res, next) => {
 // Reset Password
 exports.resetPassword = catchErrorAsync(async (req, res, next) => {
   const { newPassword, passwordConfirm } = req.body;
-  const token = req.params.token;
+  const { params } = req;
+  const token = params?.token;
 
   // 1. Get user based on token
   const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -177,7 +206,7 @@ exports.protectRoute = catchErrorAsync(async (req, res, next) => {
 
 // User Roles and Permissions
 exports.restrictTo = (roles) => (req, res, next) => {
-  const userRole = req.user?.role;
+  const userRole = req.user.role;
 
   const hasPermission = roles.includes(userRole);
 
