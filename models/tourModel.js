@@ -107,6 +107,10 @@ const tourSchema = new Schema(
   },
 );
 
+// Create index to improve read performance
+tourSchema.index({ price: 1, ratingsAverage: 1 });
+
+// Create virtual field, "durationWeeks"
 tourSchema.virtual('durationWeeks').get(function () {
   return this.duration / 7;
 });
@@ -118,13 +122,13 @@ tourSchema.virtual('reviews', {
   localField: '_id',
 });
 
-// Docuement middleware - tourSchema.post()
+// Docuement middleware
 tourSchema.pre('save', function (next) {
   this.slug = slugify(this.name, { lower: true });
   next();
 });
 
-// Docuement middleware - tourSchema.post()
+// Docuement middleware
 tourSchema.pre('save', async function (next) {
   const guidesPromise = this.guides.map(
     async (id) => await UserModel.findById(id),

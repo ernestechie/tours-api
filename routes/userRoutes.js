@@ -20,15 +20,13 @@ router.post('/signup', signup);
 router.post('/forgot-password', forgotPassword);
 router.patch('/reset-password/:token', resetPassword);
 
-// User routes
-router.patch('/update-profile', protectRoute, updateProfile);
-router.delete('/delete-account', protectRoute, deleteAccount);
-router
-  .route('/')
-  .get(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), getAllUsers);
+// Authentication Midedleware - Protects all routes below
+router.use(protectRoute);
 
-router
-  .route('/:id')
-  .get(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), getUser);
+// User routes
+router.patch('/update-profile', updateProfile);
+router.delete('/delete-account', deleteAccount);
+router.route('/').get(restrictTo(['ADMIN', 'LEAD-GUIDE']), getAllUsers);
+router.route('/:id').get(restrictTo(['ADMIN', 'LEAD-GUIDE']), getUser);
 
 module.exports = router;

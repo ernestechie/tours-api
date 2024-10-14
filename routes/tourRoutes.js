@@ -26,11 +26,14 @@ router.route('/top-5-cheap').get(aliasTopTours, getAllTours);
 router.route('/basic-metrics').get(getTourMetrics);
 router.route('/monthly-stats/:year').get(getMonthlyStats);
 
-router.route('/').get(protectRoute, getAllTours).post(protectRoute, createTour);
+router
+  .route('/')
+  .get(getAllTours)
+  .post(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), createTour);
 
 router
   .route('/:id')
-  .get(protectRoute, getTour)
+  .get(getTour)
   .patch(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), updateTour)
   .delete(protectRoute, restrictTo(['ADMIN', 'LEAD-GUIDE']), deleteTour);
 

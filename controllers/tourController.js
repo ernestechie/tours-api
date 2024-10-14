@@ -2,9 +2,9 @@ const TourModel = require('../models/tourModel');
 const APIFeatures = require('../modules/APIFeatures');
 const AppError = require('../utils/appError');
 const { catchErrorAsync } = require('./errorController');
+const { deleteOne, updateOne } = require('./handlerFactory');
 
 // Middleware Functions
-
 exports.aliasTopTours = (req, res, next) => {
   req.query.limit = '5';
   req.query.sort = '-ratingsAverage,price';
@@ -16,14 +16,14 @@ exports.aliasTopTours = (req, res, next) => {
 
 // Route Handlers
 exports.getAllTours = catchErrorAsync(async (req, res, next) => {
-  const { requestTime } = req;
+  const { requestTime, query } = req;
 
   const excludedFields = ['page', 'sort', 'limit', 'fields'];
 
   // Execute the query find()
   const toursQuery = TourModel.find();
 
-  const features = new APIFeatures(toursQuery, req.query);
+  const features = new APIFeatures(toursQuery, query);
   features.filter(excludedFields).sort().limitFields().paginate();
 
   const tours = await features.query;
@@ -36,7 +36,7 @@ exports.getAllTours = catchErrorAsync(async (req, res, next) => {
       tours,
       meta: {
         requestTime,
-        currentPage: +req.query.page || 1,
+        currentPage: +query.page || 1,
       },
     },
     message: 'Tours retrieved successsfully',
@@ -76,39 +76,11 @@ exports.createTour = catchErrorAsync(async (req, res, next) => {
   }
 });
 
-exports.updateTour = catchErrorAsync(async (req, res, next) => {
-  const { params, body, requestTime } = req;
+// Update tour
+exports.updateTour = updateOne(TourModel);
 
-  const tour = await TourModel.findByIdAndUpdate(params.id, body.tour, {
-    new: true,
-    runValidators: true,
-  });
-
-  if (!tour) {
-    return next(new AppError('No tour found with this id', 404));
-  }
-
-  res.status(200).json({
-    status: 'success',
-    data: { tour, requestTime },
-    message: 'Tour updated successsfully',
-  });
-});
-
-exports.deleteTour = catchErrorAsync(async (req, res, next) => {
-  const { params } = req;
-
-  const tour = await TourModel.findByIdAndDelete(params.id);
-
-  if (!tour) {
-    return next(new AppError('No tour found with this id', 404));
-  }
-
-  res.status(204).json({
-    status: 'success',
-    message: 'Tour deleted successsfully',
-  });
-});
+// Delete tour
+exports.deleteTour = deleteOne(TourModel);
 
 // Aggregate Function
 exports.getTourMetrics = catchErrorAsync(async (req, res) => {

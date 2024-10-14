@@ -2,7 +2,7 @@
 class APIFeatures {
   constructor(query, queryString) {
     this.defaultPage = 1;
-    this.defaultLimit = 10;
+    this.defaultLimit = 20;
     this.query = query;
     this.queryString = queryString;
   }
