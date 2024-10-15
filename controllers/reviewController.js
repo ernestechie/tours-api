@@ -2,7 +2,7 @@ const ReviewModel = require('../models/reviewModel');
 const APIFeatures = require('../modules/APIFeatures');
 
 const { catchErrorAsync } = require('./errorController');
-const { deleteOne } = require('./handlerFactory');
+const { deleteOne, updateOne } = require('./handlerFactory');
 
 exports.getAllReviews = catchErrorAsync(async (req, res, next) => {
   const { params, query } = req;
@@ -51,3 +51,4 @@ exports.addReview = catchErrorAsync(async (req, res, next) => {
 });
 
 exports.deleteReview = deleteOne(ReviewModel);
+exports.updateReview = updateOne(ReviewModel);

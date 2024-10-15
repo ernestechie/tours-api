@@ -14,7 +14,7 @@ const app = express();
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
 
 const limiter = rateLimit({
-  max: 10, // Maximum number of requests in the window
+  max: 30, // Maximum number of requests in the window
   windowMs: 3600000, // 1 hour (in Milliseconds)
   message: 'Too many requests, please try again in 1hr.',
 });
@@ -33,7 +33,7 @@ app.use('/api/v1/tours', tourRouter);
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/reviews', reviewRouter);
 
-// Catch all not-found routes.
+// Catch all 404 (not-found) routes.
 app.all('*', (req, res, next) => {
   next(new AppError(`Cannot find URL -> ${req.originalUrl}`, 404));
 });

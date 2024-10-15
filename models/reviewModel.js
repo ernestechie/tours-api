@@ -65,30 +65,40 @@ reviewSchema.statics.calculateAverageRating = async function (tourId) {
     },
   ]);
 
+  await TourModel.findByIdAndUpdate(tourId, {
+    ratingsQuantity: stats[0] ? stats[0].ratingsQuantity || 0 : 0,
+    ratingsAverage: stats[0] ? stats[0].ratingsAverage || 4.5 : 4.5,
+  });
+
   return stats;
 };
 
 // Calculate average rating before storing
 reviewSchema.post('save', async function (docs, next) {
-  const stats = await this.constructor.calculateAverageRating(this.tour);
+  await this.constructor.calculateAverageRating(this.tour);
+  next();
+});
 
-  const { _id, ratingsQuantity, ratingsAverage } = stats[0];
+// Calculate average rating when a review is updated or deleted
+reviewSchema.pre(/^findOneAnd/, async function (next) {
+  this.currentReview = await this.findOne();
+  next();
+});
 
-  await TourModel.findByIdAndUpdate(
-    _id,
-    {
-      ratingsQuantity,
-      ratingsAverage,
-    },
-    {
-      new: true,
-      runValidators: true,
-    },
+reviewSchema.post(/^findOneAnd/, async function (docs, next) {
+  if (!this.currentReview) return next();
+
+  await this.currentReview.constructor.calculateAverageRating(
+    this.currentReview.tour,
   );
 
   next();
 });
 
+//
+reviewSchema.index({ tour: 1, user: 1 }, { unique: true });
+
+// Populate the review object with the user.
 reviewSchema.pre(/^find/, function (next) {
   this.populate({
     path: 'user',

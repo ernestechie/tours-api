@@ -5,7 +5,8 @@ const reviewController = require('../controllers/reviewController');
 const router = express.Router({ mergeParams: true });
 
 const { protectRoute, restrictTo } = authController;
-const { addReview, getAllReviews, deleteReview } = reviewController;
+const { addReview, getAllReviews, deleteReview, updateReview } =
+  reviewController;
 
 // Authentication Midedleware - Protects all routes below
 router.use(protectRoute);
@@ -15,6 +16,6 @@ router
   .get(getAllReviews)
   .post(restrictTo(['USER']), addReview);
 
-router.route('/:id').delete(deleteReview);
+router.route('/:id').delete(deleteReview).patch(updateReview);
 
 module.exports = router;
